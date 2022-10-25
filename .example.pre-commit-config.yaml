@@ -1,3 +1,5 @@
+# See https://pre-commit.com for more information
+# See https://pre-commit.com/hooks.html for more hooks
 repos:
   # Дефолтный настройки
   - repo: https://github.com/pre-commit/pre-commit-hooks
@@ -31,12 +33,38 @@ repos:
           - flake8-typing-imports
         language_version: python3
         args: ["--max-line-length=120", "--max-doc-length=110", "--ignore=E203,W503,F401,F403" ]
+  # Проверка на логическое наименование ветки в Гите
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.2.0
+    hooks:
+      - id: no-commit-to-branch
+        args: ['--pattern=develop|main|master|^(?!((fix|feature)\/[a-zA-Z0-9\-]+)$).*']
+  # Удаляет неиспользуемые импорты и переменные
+  - repo: https://github.com/myint/autoflake
+    rev: v1.4
+    hooks:
+      - id: autoflake
+        args: [ "--in-place", "--remove-unused-variables"]  # , "--remove-all-unused-imports" ]
   # Для сортировки импорта в алфавитном порядке, --src это путь к вашим исходным кодам
   - repo: https://github.com/PyCQA/isort
     rev: 5.10.1
     hooks:
       - id: isort
         args: [ "--line-length=120", "--src=src" ]
+  # Обнаруживает ошибки программирования и выдает предложения по изменению кода в соответствии сPEP8
+  - repo: https://github.com/PyCQA/pylint
+    rev: v2.13.4
+    hooks:
+      - id: pylint
+        args: [ "--disable=unused-argument" ]
+  # Выполняет статическую проверку типов для my-py
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v0.942
+    hooks:
+      - id: mypy
+        args: [ "--ignore-missing-imports" ]
+        additional_dependencies:
+          - types-requests
   # Проверки строк документации, требуется, проверка: чтобы первая строка строки документации была строкой
   # сводки и должна начинаться с повелительного глагола и заканчиваться точкой
   - repo: https://github.com/PyCQA/pydocstyle
@@ -52,3 +80,10 @@ repos:
         always_run: true
         pass_filenames: false
         language: system
+  # Для созданий миграций
+  - repo: https://github.com/remastr/pre-commit-django-check-migrations
+    rev: v0.1.0
+    hooks:
+      - id: check-migrations-created
+        args: [--manage-path=manage.py]
+        additional_dependencies: [ django==3.2 ]

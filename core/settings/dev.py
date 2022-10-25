@@ -1,12 +1,10 @@
-from base import *
+from core.settings.base import INSTALLED_APPS
 
-ASGI_APPLICATION = 'core.asgi.application'
+ASGI_APPLICATION = "core.asgi.application"
 AUTH_USER_MODEL = "users.UserModel"
 
-
 APPS = [
-    'src.Ninja.users',
-    'src.educations',
+    "src.users"
     # 'src.other_apps.main',
     # 'src.chat',
     # "channels"

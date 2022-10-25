@@ -3,10 +3,13 @@
 import os
 import sys
 
+import environ
+
 
 def main():
     """Run administrative tasks."""
-    os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'core.settings.dev')
+    os.environ.setdefault("DJANGO_SETTINGS_MODULE", "core.settings.base")
+    # environ.Env().read_env(".env")
     try:
         from django.core.management import execute_from_command_line
     except ImportError as exc:
@@ -18,5 +21,5 @@ def main():
     execute_from_command_line(sys.argv)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

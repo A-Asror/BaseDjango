@@ -1,6 +1,8 @@
+black
 Django==3.2
-python-environ
 django-cors-headers
+isort
+pre-commit
 PyJWT
 python-environ
-pre-commit
+python-environ

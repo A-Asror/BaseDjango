@@ -1,0 +1,6 @@
+Django==3.2
+python-environ
+django-cors-headers
+PyJWT
+python-environ
+pre-commit

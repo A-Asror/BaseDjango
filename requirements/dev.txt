@@ -1,0 +1,8 @@
+# celery
+# redis
+# email-validator
+# pydantic
+# django-ninja
+# djangorestframework
+# django-redis
+# psycopg2

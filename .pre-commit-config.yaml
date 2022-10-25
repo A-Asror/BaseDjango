@@ -1,0 +1,10 @@
+exclude: '(\.git|\.mypy_cache|\.pytest_cache|\.tox|\.venv|venv|.env|env|\.vscode|static|media/|.*/templates|.*/migrations)'
+repos:
+    -   repo: https://github.com/remastr/pre-commit-django-check-migrations
+        rev: v0.1.0
+        hooks:
+        -   id: check-migrations-created
+            args: [--manage-path=sample_project/manage.py]
+            additional_dependencies: [
+                django==3.2
+            ]

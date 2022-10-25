@@ -1,4 +1,4 @@
-exclude: '(\.git|\.mypy_cache|\.pytest_cache|\.tox|\.venv|venv|.env|env|\.vscode|static|media/|.*/templates|.*/migrations)'
+exclude: '(\.git|\.mypy_cache|\.pytest_cache|\.tox|\.venv|venv|.env|env|\.vscode|static|media/|.*/templates)'
 repos:
     -   repo: https://github.com/remastr/pre-commit-django-check-migrations
         rev: v0.1.0

@@ -9,10 +9,11 @@ class BasePermission:
         self.chek_permission = chek_permission
         if self.chek_permission:
             self.__call__ = None
-        self.check_object_permissions(request, obj)
+        # self.check_object_permissions(request, obj)
 
     def __call__(self, request):
         request.user = JWTAuthentication()(request)
+        request.auth_class = self  # Класс Аутентификации
         return self.has_permission(request)
 
     def check_object_permissions(self, request, obj):
@@ -30,6 +31,7 @@ class RefreshAuth(BasePermission):
 
     def __call__(self, request):
         request.user = CookieAuthenticate()(request)
+        request.auth_class = self  # Класс Аутентификации
         return self.has_permission(request)
 
     def has_permission(self, request):
@@ -40,3 +42,13 @@ class IsAuthenticate(BasePermission):
 
     def has_permission(self, request):
         return True if bool(request.user) else False
+
+# Example method: has_object_permission
+# class IsAuthenticateFriends(BasePermission):
+#     def has_permission(self, request):
+#         return True if bool(request.user) else False
+#
+#     @classmethod
+#     def has_object_permission(cls, request, obj):
+#         # если отправит свой ID чтоб делать операции в эндпоинте /friends/....
+#         return True if request.user.id != obj.id else False

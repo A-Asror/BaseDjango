@@ -9,8 +9,8 @@ from django.utils.translation import gettext_lazy as _
 from ninja.compatibility import get_headers
 from ninja.security.http import HttpAuthBase, logger
 
-from src.users import UserModel
-from src.utils.exceptions import AuthenticationFailed
+from src.users.models import UserModel
+from src.utils.ninja.exceptions import AuthenticationFailed
 
 
 def decode_token(token):
@@ -55,19 +55,27 @@ class JWTAuthentication(HttpAuthBase):
     def __call__(self, request: HttpRequest) -> Optional[Any]:
         headers = get_headers(request)
         auth_value = headers.get(self.header)
-        # auth_value = b'bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpZCI6MSwiZXhwIjoxNjY0NzE4MDcxLCJpYXQiOjE2NjEyNjIwNzF9.2SX6hdmg6xkX369RrUUZZquY5EG2Ml37ETlV4wH_R48'
+        self.request = request
         if not auth_value:
             return None
 
-        auth_value = auth_value.decode("utf-8")
+        # в продакшене можно убрать блок try except
+        try:
+            auth_value = auth_value.decode("utf-8")
+        except AttributeError:
+            pass
         auth_header = auth_value.split(" ")
+        return self.check_scheme(auth_header, auth_value)
 
+    def check_scheme(self, auth_header: list, auth_value: str):
         if auth_header[0].lower() != self.openapi_scheme:
             if settings.DEBUG:
                 logger.error(f"Unexpected auth - '{auth_value}'")
             return None
+        return self.check_url_and_header(auth_header)
 
-        if 'login/' in request.path or 'register/' in request.path:
+    def check_url_and_header(self, auth_header):
+        if 'login/' in self.request.path or 'register/' in self.request.path:
             return None
         elif len(auth_header) == 0:
             return None
@@ -77,9 +85,10 @@ class JWTAuthentication(HttpAuthBase):
         elif len(auth_header) > 2:
             msg = _('Invalid token header. Token string should not contain spaces.')
             raise AuthenticationFailed(msg)
+        return self.get_token(auth_header)
 
+    def get_token(self, auth_header):
         self.token = " ".join(auth_header[1:])
-        self.request = request
         return self.authenticate()
 
     def authenticate(self):
@@ -98,7 +107,8 @@ class JWTAuthentication(HttpAuthBase):
 
         validation_user(user)
 
-        if self.request.COOKIES.get('_at', '!@$%^') != user.jwt.refresh:
+        # if self.request.COOKIES.get('_at', '!@$%^') != user.jwt.refresh or self.token != user.jwt.access:
+        if self.token != user.jwt.access:
             msg = _('Invalid access and refresh tokens. No credentials provided.')
             raise AuthenticationFailed(msg)
         return user
@@ -109,5 +119,28 @@ class CookieAuthenticate(JWTAuthentication):
     header: str = 'Authorization_Refresh'
 
     def __call__(self, request: HttpRequest) -> Optional[Any]:
+        self.request = request
         request.META['HTTP_AUTHORIZATION_REFRESH'] = f"refresh {request.COOKIES.get('_at', '!@$%^')}".encode()
+        # get refresh token
         return super().__call__(request)
+
+    def _authenticate_credentials(self, payload):
+        # get access token
+        if self.openapi_scheme == "refresh":
+            self.openapi_scheme: str = "bearer"
+            self.header: str = "Authorization"
+            super().__call__(self.request)
+
+        try:
+            user = UserModel.objects.select_related('jwt').defer('jwt__id', 'jwt__created_at', 'jwt__updated_at', 'jwt__user_id').get(pk=payload['id'])
+        except UserModel.DoesNotExist:
+            msg = _('Invalid payload. User with *id not found.')
+            raise AuthenticationFailed(msg)
+
+        validation_user(user)
+
+        # if self.request.COOKIES.get('_at', '!@$%^') != user.jwt.refresh or self.token != user.jwt.access:
+        if self.token != user.jwt.access:
+            msg = _('Invalid access and refresh tokens. No credentials provided.')
+            raise AuthenticationFailed(msg)
+        return user

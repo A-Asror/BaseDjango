@@ -1,17 +1,41 @@
-from core.settings.base import INSTALLED_APPS
+from core.settings.base import INSTALLED_APPS, MIDDLEWARE
 
-ASGI_APPLICATION = "core.asgi.application"
-AUTH_USER_MODEL = "users.UserModel"
 
 APPS = [
-    "src.users"
+    "debug_toolbar",
+    "querycount",
+    "src.users",
     # 'src.other_apps.main',
     # 'src.chat',
     # "channels"
 ]
 
+ASGI_APPLICATION = "core.asgi.application"
+AUTH_USER_MODEL = "users.UserModel"
+
 INSTALLED_APPS += APPS
 
+INTERNAL_IPS = [
+    "127.0.0.1",
+]  # for debug toolbar
+
+MIDDLEWARE += [
+    "querycount.middleware.QueryCountMiddleware",
+    "debug_toolbar.middleware.DebugToolbarMiddleware",
+]
+
+QUERYCOUNT = {
+    'THRESHOLDS': {
+        'MEDIUM': 50,
+        'HIGH': 200,
+        'MIN_TIME_TO_LOG': 0,
+        'MIN_QUERY_COUNT_TO_LOG': 0
+    },
+    'IGNORE_REQUEST_PATTERNS': [],
+    'IGNORE_SQL_PATTERNS': [],
+    'DISPLAY_DUPLICATES': None,
+    'RESPONSE_HEADER': 'X-DjangoQueryCount-Count'
+}
 
 # CHANNEL LAYERS CONF
 # CHANNEL_LAYERS = {

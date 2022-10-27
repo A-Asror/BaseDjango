@@ -1,13 +1,12 @@
 from core.settings.base import INSTALLED_APPS, MIDDLEWARE
 
-
 APPS = [
     "debug_toolbar",
     "querycount",
     "src.users",
     # 'src.other_apps.main',
     # 'src.chat',
-    # "channels"
+    # "channels",
 ]
 
 ASGI_APPLICATION = "core.asgi.application"
@@ -25,16 +24,11 @@ MIDDLEWARE += [
 ]
 
 QUERYCOUNT = {
-    'THRESHOLDS': {
-        'MEDIUM': 50,
-        'HIGH': 200,
-        'MIN_TIME_TO_LOG': 0,
-        'MIN_QUERY_COUNT_TO_LOG': 0
-    },
-    'IGNORE_REQUEST_PATTERNS': [],
-    'IGNORE_SQL_PATTERNS': [],
-    'DISPLAY_DUPLICATES': None,
-    'RESPONSE_HEADER': 'X-DjangoQueryCount-Count'
+    "THRESHOLDS": {"MEDIUM": 50, "HIGH": 200, "MIN_TIME_TO_LOG": 0, "MIN_QUERY_COUNT_TO_LOG": 0},
+    "IGNORE_REQUEST_PATTERNS": [],
+    "IGNORE_SQL_PATTERNS": [],
+    "DISPLAY_DUPLICATES": None,
+    "RESPONSE_HEADER": "X-DjangoQueryCount-Count",
 }
 
 # CHANNEL LAYERS CONF

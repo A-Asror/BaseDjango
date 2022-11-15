@@ -4,9 +4,6 @@ APPS = [
     "debug_toolbar",
     "querycount",
     "src.users",
-    # 'src.other_apps.main',
-    # 'src.chat',
-    # "channels",
 ]
 
 ASGI_APPLICATION = "core.asgi.application"

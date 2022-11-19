@@ -1,11 +1,12 @@
 from django.conf import settings
+from django.http import HttpResponse
 from django.utils import timezone
 from datetime import timedelta
 from jwt import api_jwt
 from src.users.models import JwtModel
 
 
-def token_generator(uid, format_time):
+def token_generator(uid: int, format_time: dict):
     data_token = {
         'id': uid,
         'exp': timezone.localtime(timezone.now()) + timedelta(**format_time),  # minutes, days
@@ -15,12 +16,11 @@ def token_generator(uid, format_time):
     return token
 
 
-def _response(access, refresh, response):
-    max_age = 30 * 24 * 60 * 60  # 30 days
-    response.set_cookie(key='_at', value=refresh, domain='127.0.0.1', httponly=True, max_age=max_age)  # , samesite=None
-    response.status_code = 200
-    response.headers = {'Authorization': f'Bearer {access}'}
-    return 200, {'message': 'Success'}
+def _response(access: str, refresh: str, response: HttpResponse):
+    max_age_in_seconds = 2592000  # 30 days
+    # В продакшене надо будет изменить значение domain
+    response.set_cookie(key='_at', value=refresh, domain='127.0.0.1', httponly=True, max_age=max_age_in_seconds)
+    return 200, {'access': access}
 
 
 class UpdateTokens:

@@ -12,13 +12,16 @@ router = Router()
 @router.post("/register/", response={message_code_status: Message}, tags=["users"])
 def register(request, payload: schemes.RegisterSchemaIn):
     data = payload.dict()
+    password = data.pop("password")
     if UserModel.objects.filter(username=data['username'], email=data['email']).exists():
         raise ValidationError(f"A user with the same email: {data['username']} or username: {data['email']} already exists")
-    UserModel.objects.create(**data)
+    user = UserModel(**data)
+    user.set_password(password)
+    user.save()
     return 200, {"message": "User created"}
 
 
-@router.post("/login/", response={message_code_status: schemes.Message}, tags=["users"])
+@router.post("/login/", response={message_code_status: Message}, tags=["users"])
 def login(request, payload: schemes.LoginSchema, response: HttpResponse):
     payload = payload.dict()
     request.user = authenticate(request, email=payload['email'], password=payload['password'])

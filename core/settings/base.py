@@ -3,7 +3,6 @@ from pathlib import Path
 
 import environ
 
-# CELERY
 # from celery.schedules import crontab
 
 env = environ.Env()
@@ -110,14 +109,14 @@ STATIC_URL = "/static/"
 
 MEDIA_URL = "/media/"
 
-# STATIC_ROOT = os.path.join(BASE_DIR, 'static')
-
 MEDIA_ROOT = os.path.join(BASE_DIR, "media")
 
+# STATIC_ROOT = os.path.join(BASE_DIR, 'static')
 
 # STATICFILES_DIRS = [
 #     os.path.join(BASE_DIR, "static"),
 # ]
+
 CORS_ALLOW_CREDENTIALS = True
 CORS_ORIGIN_ALLOW_ALL = True
 
@@ -125,8 +124,8 @@ CORS_ORIGIN_WHITELIST = ("http://localhost:3000",)
 
 try:
     if DEBUG is True:
-        from core.settings.dev import *
+        from core.settings.dev import *  # TODO python:S2208
     else:
-        from core.settings.prod import *
+        from core.settings.prod import *  # FIX: Error python:S2208
 except ImportError:
     pass

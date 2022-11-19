@@ -49,26 +49,20 @@ Gender = [
 
 Permissions = (
     (1, _("Admin")),
-    (2, _("Manager")),
-    (3, _("University Manager")),
-    (4, _("Volunteer")),
-    (5, _("Teacher")),
-    (6, _("Student")),
-    (7, _("Enrollee")),
-    (8, _("Anonymous")),
+    (2, _("User")),
 )
 
 
 class UserModel(BaseModel, AbstractBaseUser, PermissionsMixin):
-    username: str = models.CharField(max_length=255)
+    username: str = models.CharField(max_length=255, unique=True)
     email: str = models.EmailField(unique=True)
-    first_name: str = models.CharField(max_length=150)
-    last_name: str = models.CharField(max_length=150)
+    phone: str = models.CharField(max_length=13, unique=True)
+    fullname: str = models.CharField(max_length=150)
     permission: int = models.IntegerField(choices=Permissions, default=7)
-    dob: dt.date = models.DateField(null=True)
-    about: str = models.TextField(null=True)
-    links: dict = models.JSONField()  # ссылки соц сетей  default={}
-    images: dict = models.JSONField()  # default={}
+    dob: dt.date = models.DateField(blank=True, null=True)
+    about: str = models.TextField(blank=True, null=True)
+    links: dict = models.JSONField(blank=True, null=True)  # ссылки соц сетей  default={}
+    images: dict = models.JSONField(blank=True, null=True)
     is_active: bool = models.BooleanField(default=True)
     is_superuser: bool = models.BooleanField(default=False)
     is_staff: bool = models.BooleanField(default=False)

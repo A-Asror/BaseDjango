@@ -9,3 +9,7 @@ class BaseScheme(BaseModel):
 
     class Config:
         orm_mode = True
+
+
+class Message(BaseModel):
+    message: str

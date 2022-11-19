@@ -1,17 +1,20 @@
-from src.users import UserModel
+from ninja import Router
+
+from src.base.schemes import Message
+from src.users import schemes
+from src.users.models import UserModel
+from src.utils.ninja.code_status import message_code_status
+from src.utils.ninja.exceptions import ValidationError
+
+router = Router()
 
 
-@router.post("/register/", response={message_code_status: schemes.Message}, tags=["users"])
-def register(request, payload: schemes.RegisterSchema):
-    payload = payload.dict()
-    if UserModel.objects.filter(username=payload['username'], email=payload['email']).exists():
-        return {'message': 'A user with the same email or username already exists', 'code': 401}
-    password1 = payload.pop('password1', False)
-    password2 = payload.pop('password2', False)
-    if not password2 or not password2 or password2 != password1:
-        return 400, {'message': 'passwords do not match'}
-    payload['password'] = password1
-    UserModel.objects.create(**payload)
+@router.post("/register/", response={message_code_status: Message}, tags=["users"])
+def register(request, payload: schemes.RegisterSchemaIn):
+    data = payload.dict()
+    if UserModel.objects.filter(username=data['username'], email=data['email']).exists():
+        raise ValidationError(f"A user with the same email: {data['username']} or username: {data['email']} already exists")
+    UserModel.objects.create(**data)
     return 200, {"message": "User created"}
 
 

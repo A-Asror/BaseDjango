@@ -9,11 +9,6 @@ from django.utils.translation import gettext_lazy as _
 from src.base.models import BaseModel, BandManager
 
 
-# from django.contrib.postgres.fields.jsonb import JSONField
-# orders = JSONField(default=list, blank=True, null=True)
-# orders = serializers.ListField(child=serializers.JSONField())
-
-
 class UserManager(BaseUserManager, BandManager):
     def create_user(self, email: str, password: str, **extra_fields) -> "UserModel":
         if email is None:

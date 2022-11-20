@@ -4,6 +4,7 @@ from secrets import compare_digest as compare_secret_data
 from typing import Optional, Dict, Union
 
 import pydantic as pdc
+from pydantic import BaseModel, Field
 
 from src.users.models import Permissions
 from src.base.schemes import BaseScheme
@@ -21,7 +22,7 @@ class TokenScheme(pdc.BaseModel):
     access: str
 
 
-class BaseUserSchema(BaseScheme):
+class BaseUserScheme(BaseScheme):
     username: Optional[str]
     email: Optional[pdc.EmailStr]
     phone: Optional[str]
@@ -34,7 +35,7 @@ class BaseUserSchema(BaseScheme):
     is_active: Optional[bool]
 
 
-class RegisterSchemaIn(BaseScheme):
+class RegisterSchemeIn(BaseScheme):
     username: str  # required
     email: pdc.EmailStr  # required
     phone: str  # required
@@ -58,3 +59,8 @@ class RegisterSchemaIn(BaseScheme):
         if bool(password and confirm_password) and compare_secret_data(password, confirm_password):
             raise ValidationError(message="Passwords do not match", status_code=400)
         return values
+
+
+class LoginSchemeIn(BaseModel):
+    login: str
+    password: str = Field(min_length=8, max_length=50)

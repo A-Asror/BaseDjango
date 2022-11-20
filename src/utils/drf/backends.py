@@ -1,53 +1,54 @@
 from typing import Union
+from secrets import compare_digest as compare_secret_data
 
-from django.utils import timezone
-from django.conf import settings
-from django.utils.translation import gettext_lazy as _
-
-from rest_framework import authentication
 import jwt
+
+from django.conf import settings
+from django.contrib.auth.base_user import AbstractBaseUser
+from django.utils import timezone
+from django.utils.translation import gettext_lazy as _
+from rest_framework import authentication
 from rest_framework.exceptions import AuthenticationFailed
 
-from src.users.models import UserModel, JwtModel
-
-
 # from base.cache import AuthUserCache
-# from django.contrib.auth.base_user import AbstractBaseUser
+
+from src.users.models import UserModel
+
+
+ERROR_PAYLOAD = 'Invalid payload. User with *id not found.'
+
 
 def decode_token(token: str) -> Union[dict, AuthenticationFailed]:
     try:
         decode_data = jwt.decode(token, settings.SECRET_KEY, algorithms=['HS256'])
         return decode_data
     except Exception:
-        raise AuthenticationFailed()
+        msg = _('Invalid token.')
+        raise AuthenticationFailed(msg)
 
 
 def chek_token_life(decode_data: dict) -> bool:
     exp = decode_data['exp']
-    if int(timezone.now().timestamp()) < exp:
+    if int(timezone.localtime(timezone.now()).timestamp()) < exp:
         return True
     return False
 
 
 def validation_user(user):
     if user is None:
-        msg = _('Invalid payload. User with *id not found.')
+        msg = _(ERROR_PAYLOAD)
         raise AuthenticationFailed(msg)
-
-    # try:
-    #     user.profile
-    # except Exception:  # RelatedObjectDoesNotExist
-    #     msg = _('Invalid user. User profile not found.')
-    #     raise AuthenticationFailed(msg)
-
+    elif not user.is_active:
+        msg = _('Invalid user. the user is blocked.')
+        raise AuthenticationFailed(msg)
+    elif isinstance(user, AbstractBaseUser) is False:
+        msg = _('Invalid user')
+        raise AuthenticationFailed(msg)
     try:
         user.jwt
-    except Exception:  # RelatedObjectDoesNotExist
-        return None
-
-    if not user.is_active:
-        msg = _('Invalid user. the user is blocked.')
-        return AuthenticationFailed(msg)
+    except UserModel.jwt.RelatedObjectDoesNotExist:  # RelatedObjectDoesNotExist
+        msg = _('Invalid token. please log in')
+        raise AuthenticationFailed(msg)
 
 
 class JWTAuthentication(authentication.BaseAuthentication):
@@ -60,8 +61,6 @@ class JWTAuthentication(authentication.BaseAuthentication):
         request.user = None
         self.request = request
         auth_header = authentication.get_authorization_header(request).split()
-
-        auth_header = [b"bearer", b"eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJpZCI6MSwiZXhwIjoxNjY2MTgwMDc0LCJpYXQiOjE2NjI3MjQwNzR9.QzZtEAIjo7CIbIDjQ_LbQQjKmSmxhCPS0bImsnGQzqw"]
 
         if 'login/' in request.path or 'register/' in request.path:
             return None
@@ -95,12 +94,12 @@ class JWTAuthentication(authentication.BaseAuthentication):
         try:
             user = UserModel.objects.select_related('jwt', ).get(pk=payload['id'])
         except Exception:
-            msg = _('Invalid payload. User with *id not found.')
+            msg = _(ERROR_PAYLOAD)
             raise AuthenticationFailed(msg)
 
         validation_user(user)
         # if self.token != user.jwt.access or self.request.COOKIES.get('_at', '!@$%^') != user.jwt.refresh:
-        if self.token != user.jwt.access:
+        if compare_secret_data(self.token, user.jwt.access):
             msg = _('Invalid access and refresh tokens. No credentials provided.')
             raise AuthenticationFailed(msg)
         self.request.user = user
@@ -114,12 +113,12 @@ class RefreshJWTAuthentication(JWTAuthentication):
         try:
             user = UserModel.objects.select_related('jwt', ).get(pk=payload['id'])
         except UserModel.DoesNotExist:
-            msg = _('Invalid payload. User with *id not found.')
+            msg = _(ERROR_PAYLOAD)
             raise AuthenticationFailed(msg)
 
         validation_user(user)
 
-        if self.token != user.jwt.refresh or self.request.COOKIES.get('_at', '!@$%^') != user.jwt.refresh:
+        if compare_secret_data(self.token, user.jwt.refresh) or self.request.COOKIES.get('_at', '!@$%^') != user.jwt.refresh:
             msg = _('Invalid access and refresh tokens. No credentials provided.')
             raise AuthenticationFailed(msg)
         self.request.user = user

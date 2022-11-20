@@ -1,4 +1,5 @@
 from typing import Optional, Any
+from secrets import compare_digest as compare_secret_data
 
 import jwt
 from django.conf import settings
@@ -11,6 +12,8 @@ from ninja.security.http import HttpAuthBase, logger
 
 from src.users.models import UserModel
 from src.utils.ninja.exceptions import AuthenticationFailed
+
+ERROR_PAYLOAD = 'Invalid payload. User with *id not found.'
 
 
 def decode_token(token):
@@ -31,7 +34,7 @@ def chek_token_life(decode_data):
 
 def validation_user(user):
     if user is None:
-        msg = _('Invalid payload. User with *id not found.')
+        msg = _(ERROR_PAYLOAD)
         raise AuthenticationFailed(msg)
     elif user.is_active is False:
         msg = _('Invalid user. the user is blocked.')
@@ -49,7 +52,7 @@ def validation_user(user):
 class JWTAuthentication(HttpAuthBase):
     openapi_scheme: str = "bearer"
     header: str = "Authorization"
-    token: str = None
+    token: Optional[str] = None
     request: HttpRequest = None
 
     def __call__(self, request: HttpRequest) -> Optional[Any]:
@@ -100,15 +103,17 @@ class JWTAuthentication(HttpAuthBase):
     def _authenticate_credentials(self, payload):
 
         try:
-            user = UserModel.objects.select_related('jwt').defer('jwt__id', 'jwt__created_at', 'jwt__updated_at', 'jwt__user_id').get(pk=payload['id'])
+            user = UserModel.objects.select_related('jwt').defer(
+                'jwt__id', 'jwt__created_at', 'jwt__updated_at', 'jwt__user_id'
+            ).get(pk=payload['id'])
         except Exception:
-            msg = _('Invalid payload. User with *id not found.')
+            msg = _(ERROR_PAYLOAD)
             raise AuthenticationFailed(msg)
 
         validation_user(user)
 
         # if self.request.COOKIES.get('_at', '!@$%^') != user.jwt.refresh or self.token != user.jwt.access:
-        if self.token != user.jwt.access:
+        if compare_secret_data(self.token, user.jwt.access):
             msg = _('Invalid access and refresh tokens. No credentials provided.')
             raise AuthenticationFailed(msg)
         return user
@@ -132,15 +137,17 @@ class CookieAuthenticate(JWTAuthentication):
             super().__call__(self.request)
 
         try:
-            user = UserModel.objects.select_related('jwt').defer('jwt__id', 'jwt__created_at', 'jwt__updated_at', 'jwt__user_id').get(pk=payload['id'])
+            user = UserModel.objects.select_related('jwt').defer(
+                'jwt__id', 'jwt__created_at', 'jwt__updated_at', 'jwt__user_id'
+            ).get(pk=payload['id'])
         except UserModel.DoesNotExist:
-            msg = _('Invalid payload. User with *id not found.')
+            msg = _(ERROR_PAYLOAD)
             raise AuthenticationFailed(msg)
 
         validation_user(user)
 
         # if self.request.COOKIES.get('_at', '!@$%^') != user.jwt.refresh or self.token != user.jwt.access:
-        if self.token != user.jwt.access:
+        if compare_secret_data(self.token, user.jwt.access):
             msg = _('Invalid access and refresh tokens. No credentials provided.')
             raise AuthenticationFailed(msg)
         return user

@@ -1,8 +1,6 @@
-# celery
-# redis
-# email-validator
-# pydantic
-# django-ninja
-# djangorestframework
-# django-redis
-# psycopg2
+-r base.txt
+
+# Only Developer Packages
+django-querycount
+django-debug-toolbar==3.4.0
+# django-elasticsearch-debug-toolbar

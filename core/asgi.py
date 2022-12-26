@@ -1,15 +1,13 @@
-import os
+# import os
 
-import django
-import environ
-from channels.http import AsgiHandler
-from channels.routing import ProtocolTypeRouter
+# import django
+# import environ
+# from channels.routing import get_default_application
 
-env = environ.Env()
-env.read_env(".env")
+# env = environ.Env()
+# env.read_env(".env")
+# os.environ.setdefault("DJANGO_SETTINGS_MODULE", env.str("DJANGO_SETTINGS_MODULE"))
 
-os.environ.setdefault("DJANGO_SETTINGS_MODULE", env.str("DJANGO_SETTINGS_MODULE"))
-django.setup()
+# django.setup()
 
-# IMPORTANT::Just HTTP for now. (We can add other protocols later.
-application = ProtocolTypeRouter({"http": AsgiHandler()})
+# application = get_default_application()

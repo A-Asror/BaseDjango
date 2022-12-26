@@ -1,10 +1,17 @@
-black
 Django==3.2
-django-cors-headers
-isort
 pre-commit
+email-validator
+django-cors-headers
 PyJWT
 python-environ
-django-querycount
-django-debug-toolbar==3.4.0
-# django-elasticsearch-debug-toolbar
+# pydantic
+# djangorestframework
+# psycopg2-binary
+# django-ninja
+# celery==5.2.3
+# django-celery-beat==2.4.0
+# redis
+# django-redis
+# ffmpeg-python
+# channels==3.0
+# channels_redis==3.2

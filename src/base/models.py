@@ -1,12 +1,9 @@
-# from django.contrib.postgres.search import SearchQuery, SearchRank, SearchVector
-# TrigramSimilarity
-# from django.contrib.postgres.indexes import BrinIndex
-# from string import ascii_uppercase
+from enum import Enum
+from typing import AnyStr, Optional
+
+from django.contrib.postgres.indexes import BrinIndex
 from django.db import models
 from django.utils import timezone
-
-# def get_search_vectors(fields: list):
-#     return tuple([SearchVector(filed, weight=next(iter(ascii_uppercase))) for filed in fields])
 
 
 class BandManager(models.Manager):
@@ -16,30 +13,50 @@ class BandManager(models.Manager):
             return self.get_queryset().search_fields
         return []
 
-    # def search(self, text):
-    #     search_query = SearchQuery(text)
-    #     search_vectors = get_search_vectors(self.get_search_fields)
-    #     search_rank = SearchRank(search_vectors, search_query)
-    #     return self.get_queryset().annotate(search=search_vectors).filter(search=search_query)
-
 
 class BaseModel(models.Model):
     created_at = models.DateTimeField(editable=False, null=True, blank=True)
     updated_at = models.DateTimeField(editable=False, null=True, blank=True)
     objects = BandManager()
 
-    def save(self, *args, **kwargs):
+    class Meta:
+        abstract = True
+        indexes = (BrinIndex(fields=("created_at", "updated_at")),)
+
+    def save(self, update: Optional[dict] = None, update_fields: Optional[list[AnyStr]] = None, *args, **kwargs):
+        from src.base.utils import get_list_dict_keys, setattr_for_save_obj
+
         if not self.id:
             self.created_at = timezone.localtime(timezone.now())
         self.updated_at = timezone.localtime(timezone.now())
-        return super(BaseModel, self).save(*args, **kwargs)
+        setattr_for_save_obj(self, update)
+        new_update_fields = get_list_dict_keys(update) if (update is not None) else None
+        if new_update_fields is not None:
+            if (update_fields is not None) and isinstance(update_fields, list):
+                update_fields += new_update_fields
+            else:
+                update_fields = new_update_fields
+        return super(BaseModel, self).save(*args, update_fields=update_fields, **kwargs)
 
-    class Meta:
-        abstract = True
+    @classmethod
+    def update_fields(cls, user, **data):
+        """
+        Метод для перечислений доступных для изменений аттрибутов, исходя от роли пользователя.
 
-    #     indexes = (
-    #         BrinIndex(fields=('created_at', 'updated_at')),
-    #     )
+        Метод должен возвращать список аттрибутов.
+        Example: ['username', 'email', ....]
+        """
+        raise NotImplementedError
+
+    def get_upload_url(self):
+        """Метод получения Пути для сохранения файла."""
+        raise NotImplementedError
+
+
+class BaseEnum(Enum):
+    @classmethod
+    def get_choice(cls):
+        return [(attr.value, attr.name) for attr in cls]
 
 
 class ActiveVerifiedMode:

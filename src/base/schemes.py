@@ -1,15 +1,15 @@
-from pydantic import BaseModel
-
-
-def from_orm(schema: BaseModel,  obj):
-    return schema.from_orm(obj)
-
-
-class BaseScheme(BaseModel):
-
-    class Config:
-        orm_mode = True
-
-
-class Message(BaseModel):
-    message: str
+# from pydantic import BaseModel
+#
+# from ninja import Schema
+#
+#
+# def from_orm(schema: BaseModel, obj):
+#     return schema.from_orm(obj)
+#
+#
+# class Message(BaseModel):
+#     message: str
+#
+#
+# class BaseSchema(Schema):
+#     pass

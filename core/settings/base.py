@@ -3,22 +3,16 @@ from pathlib import Path
 
 import environ
 
-# from celery.schedules import crontab
-
 env = environ.Env()
 env.read_env(".env")
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
-SECRET_KEY = env.str("SECRET_KEY", "django-insecure-7ry2u2!5p@v2(%+xv&phjp0e5m2!44-w*p$9jgjd6s&!ogbx_t")
-PROBE_SERVER_TOKEN = env.str("PROBE_SERVER_TOKEN", None)
+SECRET_KEY = env.str("SECRET_KEY")
 
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = env.bool("DEBUG", False)
 
 ALLOWED_HOSTS = ["*"]
-
-# Application definition
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -27,7 +21,8 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
-    "corsheaders",
+    # "corsheaders",  # DJANGO-CORS_HEADERS
+    # "django_celery_beat",  # DJANGO-CELERY-BEAT
 ]
 
 MIDDLEWARE = [
@@ -38,7 +33,7 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
-    "corsheaders.middleware.CorsMiddleware",
+    # "corsheaders.middleware.CorsMiddleware",  # DJANGO-CORS_HEADERS
 ]
 
 ROOT_URLCONF = "core.urls"
@@ -61,18 +56,24 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "core.wsgi.application"
 
-# Database
-# https://docs.djangoproject.com/en/3.2/ref/settings/#databases
-
 DATABASES = {
+    # SQLITE
     "default": {
         "ENGINE": "django.db.backends.sqlite3",
         "NAME": BASE_DIR / "db.sqlite3",
+        **env.dict("DB_OTHER_DATA")  # DB Other Settings
     }
+    # POSTGRES, MARIADB, MYSQL.
+    # "default": {
+    #     "ENGINE": env.str("DB_ENGINE", ""),
+    #     "NAME": env.str("DB_NAME", ""),
+    #     "USER": env.str("DB_USER", ""),
+    #     "PASSWORD": env.str("DB_PASSWORD", ""),
+    #     "HOST": env.str("DB_HOST", ""),
+    #     "PORT": env.int("DB_PORT", ""),
+    #     **env.dict("DB_OTHER_DATA"),
+    # },
 }
-
-# Password validation
-# https://docs.djangoproject.com/en/3.2/ref/settings/#auth-password-validators
 
 AUTH_PASSWORD_VALIDATORS = [
     {
@@ -89,9 +90,6 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
-# Internationalization
-# https://docs.djangoproject.com/en/3.2/topics/i18n/
-
 LANGUAGE_CODE = "en-us"
 
 TIME_ZONE = "Asia/Tashkent"
@@ -102,25 +100,181 @@ USE_L10N = True
 
 USE_TZ = True
 
-# Static files (CSS, JavaScript, Images)
-# https://docs.djangoproject.com/en/3.2/howto/static-files/
-
 STATIC_URL = "/static/"
 
-MEDIA_URL = "/media/"
+STATICFILES_DIRS = (os.path.join(BASE_DIR, "static"),)
+STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
 
 MEDIA_ROOT = os.path.join(BASE_DIR, "media")
+MEDIA_URL = "/media/"
 
-# STATIC_ROOT = os.path.join(BASE_DIR, 'static')
 
-# STATICFILES_DIRS = [
-#     os.path.join(BASE_DIR, "static"),
-# ]
+"""
+START SITE APPS
+"""
+
+MY_APPS = [
+    "src.users"
+]
+
+INSTALLED_APPS += MY_APPS
+
+"""
+END SITE APPS
+
+START LOGGING
+"""
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "console": {"format": "%(message)s"},
+        "db_requests": {
+            "format": "%(asctime)s - [%(levelname)s] - %(message)s",
+            "datefmt": "%Y-%m-%d %H:%M:%S",
+        },
+        "http_requests": {
+            "format": "%(asctime)s - [%(levelname)s] - %(message)s",
+            "datefmt": "%Y-%m-%d %H:%M:%S",
+        },
+    },
+    "handlers": {
+        "console": {"class": "logging.StreamHandler", "formatter": "console"},
+        "db_request_error": {
+            "class": "logging.handlers.TimedRotatingFileHandler",
+            "filename": BASE_DIR / "logs/errors/db_requests/error.log",
+            "formatter": "db_requests",
+            "when": "D",
+            "backupCount": 20,
+            # 'maxBytes': 1024 * 1024 * 10,
+        },
+        "http_request_error": {
+            "level": "WARNING",
+            "class": "logging.handlers.TimedRotatingFileHandler",
+            "filename": BASE_DIR / "logs/errors/http_requests/error.log",
+            "formatter": "http_requests",
+            "when": "D",
+            "backupCount": 20,
+        },
+        "http_request_success": {
+            "level": "DEBUG",
+            "class": "logging.handlers.TimedRotatingFileHandler",
+            "filename": BASE_DIR / "logs/success/http_requests/error.log",
+            "formatter": "http_requests",
+            "when": "D",
+            "backupCount": 20,
+        },
+    },
+    "loggers": {
+        "django.request": {
+            "level": "DEBUG",
+            "handlers": ["http_request_error", "http_request_success"]
+            # 'handlers': ['console', 'http_request_error', 'http_request_success']
+        },
+        # "django.db.backends": {"level": "WARNING", "handlers": ["db_request_error"]},
+        "django.db.backends": {"level": "DEBUG", "handlers": ["db_request_error", "console"]},
+    },
+}
+
+"""
+END LOGGING
+
+START DJANGO REDIS CONF
+"""
+
+CACHES = {
+    "default": {
+        "BACKEND": env.str("BACKEND"),
+        "LOCATION": env.str("LOCATION"),
+        "OPTIONS": env.dict("OPTIONS"),
+    }
+}
+
+CACHE_TTL = 60 * 15
+
+"""
+END DJANGO REDIS CONF
+
+START CELERY CONF
+"""
+
+CELERY_BROKER_URL = env.str("CELERY_BROKER_URL")
+CELERY_RESULT_BACKEND = env.str("CELERY_RESULT_BACKEND")
+CELERY_ACCEPT_CONTENT = ["application/json"]
+CELERY_TASK_SERIALIZER = "json"
+CELERY_RESULT_SERIALIZER = "json"
+CELERY_TASK_TRACK_STARTED = True
+CELERY_TASK_TIME_LIMIT = 30 * 60
+
+# DJANGO CELERY BEAT
+CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
+
+"""
+END CELERY CONF
+
+START CORS SETTINGS
+"""
 
 CORS_ALLOW_CREDENTIALS = True
 CORS_ORIGIN_ALLOW_ALL = True
 
 CORS_ORIGIN_WHITELIST = ("http://localhost:3000",)
+
+"""
+END CORS SETTINGS
+
+START EMAIL SETTINGS
+"""
+
+EMAIL_BACKEND = env.str("EMAIL_BACKEND")
+EMAIL_HOST = env.str("EMAIL_HOST")
+EMAIL_PORT = env.int("EMAIL_PORT")
+EMAIL_USE_TLS = env.bool("EMAIL_USE_TLS")
+EMAIL_HOST_USER = env.str("EMAIL_HOST_USER")
+EMAIL_HOST_PASSWORD = env.str("EMAIL_HOST_PASSWORD")
+
+"""
+END EMAIL SETTINGS
+
+START CHANNELS
+"""
+
+# ASGI_APPLICATION = "core.asgi.application"
+#
+# CHANNEL_LAYERS = {
+#     "default": {
+#         "BACKEND": "channels_redis.core.RedisChannelLayer",
+#         "CONFIG": {
+#             "hosts": [("127.0.0.1", 6379)],
+#         },
+#     }
+# }
+
+"""
+END CHANNELS
+
+START Site Domains
+"""
+
+DOMAIN_FRONT_END = env.str("DOMAIN_FRONT_END")
+DOMAIN_BACK_END = env.str("DOMAIN_BACK_END")
+
+
+"""
+END Site Domains
+
+START OTHER SETTINGS
+"""
+
+AUTH_USER_MODEL = "users.UserModel"
+
+PAGINATION_PER_PAGE = env.int("PAGINATION_PER_PAGE")
+
+"""
+END OTHER SETTINGS
+"""
+
 
 try:
     if DEBUG is True:

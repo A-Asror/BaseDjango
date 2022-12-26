@@ -1,3 +1,5 @@
+# Enable if user Django-Ninja
+
 # from ninja import NinjaAPI
 # from src.app.api import app as example
 

@@ -1,47 +1,83 @@
 from typing import Union
 
-from django.db.models import Model, QuerySet, Q
-from pydantic import BaseModel
+from django.conf import settings
+from django.db import transaction
+from django.db.models import Model, Q, QuerySet
+from ninja import UploadedFile
+from pydantic import BaseModel as BaseSchema
 
-from src.base.ORM import AllCustomRequest
+from src.base.file_uploader import ImageUploader, check_prefix_image, check_size_image
+from src.base.models import BaseModel
+from src.utils.exceptions import ValidationError
 
-orm = AllCustomRequest
+
+def get_list_dict_keys(payload: dict) -> list:
+    return list(payload.keys())
 
 
-def update(obj: Model, payload: Union[BaseModel, dict]) -> Model:
+def create_images(images: list[UploadedFile], url: str, db_kwargs: dict):  # db_files: dict
+    """Функция принимает список Изображений для сохранения."""
+    for image in images:
+        check_size_image(image)  # validation size
+        check_prefix_image(image)  # validation prefix
+    img = ImageUploader(images, url, db_kwargs)
+    return img.create_images()
+
+
+def update(user, obj: BaseModel, payload: Union[BaseSchema, dict]) -> BaseModel:
+    """
+    Функция для обновления любого экземпляра models.Model, и любого вложенности Объектов.
+
+    Проверка наличия полей в Объекте, проверяется с помощью встроенного метода python: "hasattr"
+    Для изменений полей используется встроенный метод python: "setattr"
+    Для изменений вложенных объектов как OneToOneField или ForeignKey используется встроенный метода python: "getattr",
+        затем заново вызывается этот же метод: "update" и передается:
+        вложенный OneToOneField или ForeignKey Объект. для просмотра этой части смотрите: 49-50 строки
+    argument:
+    ----------
+    user: Это экземпляр UserModel, и этот параметр нужен для того чтоб проверить; Может ли этот пользователь изменить
+        аттрибуты, переданного Объекта для изменения, это проверяется с помощью метода update_fields у переданного
+        объекта
+    obj: Это Объект который будет изменен его аттрибуты
+    payload: Это словарь или Экземпляр схемы BaseModel из pydantic(а), в этом параметре передается аттрибуты и их
+       значения для изменения Объекта(obj)
+    """
+    return _update(user, obj, payload)
+
+
+@transaction.atomic
+def _update(user, obj: BaseModel, payload: Union[BaseSchema, dict]) -> BaseModel:
     if type(payload) is not dict:
-        payload = payload.dict(exclude_none=True)
-    # update_fields = obj.update_fields(obj)
-    # if hasattr(obj, attr) and attr in update_fields and type(new_value) is not dict:
+        payload = payload.dict(exclude_defaults=True)
+    update_fields = obj.update_fields(user, **payload)
     for attr, new_value in payload.items():
-        if hasattr(obj, attr) and type(new_value) is not dict:
+        obj_attrs: list = get_list_attr_names(obj)
+        if hasattr(obj, attr) and not isinstance(new_value, dict) and (attr not in update_fields):
+            raise ValidationError(status_code=400, message="permission denied")
+        if hasattr(obj, attr) and not isinstance(new_value, dict) or (attr in obj_attrs):
             setattr(obj, attr, new_value)
-        elif hasattr(obj, attr) and type(new_value) is dict:
-            _update_fields_foreign_key_or_one_to_one(obj, attr, new_value)
-    obj.save()
+        elif hasattr(obj, attr) and isinstance(new_value, dict) and (attr not in obj_attrs):
+            _update(user, getattr(obj, attr), new_value)
+    obj.save(update_fields=get_list_dict_keys(payload))
     return obj
-
-
-def _update_fields_foreign_key_or_one_to_one(obj, fk_attr, payload: dict):
-    fk_obj = getattr(obj, fk_attr)
-    # update_fields = fk_obj.update_fields(obj)
-    # if hasattr(fk_obj, attr) and attr in update_fields:
-    for attr, value in payload.items():
-        if hasattr(fk_obj, attr):
-            setattr(fk_obj, attr, value)
-    fk_obj.save()
 
 
 def remove_null_from_Q_object(q_data):
     """
-    задача этой функции удалить все Q объекты, где значение атрибута Q, равна на None Q(attr=None)
+    Задача этой функции удалить все Q объекты.
+
+    Где значение атрибута Q, равна на None Q(attr=None)
     result: если все атрибуты Q равны на None Q(attr=None), то вернет пустой tuple и False
      иначе если хоть 1 атрибут Q не равно на None, то он вернет объект Q и True
-     True и False нужен узнасть чтоб для фильтрации надоли фильтровать специально под Q объектов
+     True и False нужен узнать чтоб для фильтрации надо-ли фильтровать специально под Q объектов
     """
+    return _remove_null_from_Q_object(q_data)
+
+
+def _remove_null_from_Q_object(q_data):
     for num in range(len(q_data) - 1, -1, -1):
         if type(q_data.children[num]) is tuple:
-            if type(q_data.children[num][1]) is type(None):
+            if isinstance(q_data.children[num][1], None):
                 del q_data.children[num]
         elif type(q_data.children[num]) is Q:
             remove_null_from_Q_object(q_data.children[num])
@@ -50,58 +86,62 @@ def remove_null_from_Q_object(q_data):
     return q_data, True
 
 
-def update_data(data: QuerySet, model: Union[Model, None] = None, count: Union[QuerySet, None] = None) -> list:
-    """
-    data: это либо отфилтрованный(.filter()) или целиком взятые(.all()) объекты
-    model: это дочерной класс models.Model, он нужен лиж в том случаи, если надо узнать общее кол-во объектов этой
-     сущности из БД
-    result: вернет либо общее кол-во из data или кол-во сущностей из БД, но если общее кол-во из data равна 0, то ключ
-     count не будет добавиться в результат
-    """
-    list_data: list = list(data)
-    if model is not None:
-        count = model.objects.count()
-        if count != 0:
-            list_data.append({"count": count})
-    elif count != 0 and count is not None:
-        list_data.append({"count": count})
-    return list_data
+def paginator(queryset: QuerySet, page: int, page_size: int = 15) -> QuerySet:
+    end = page * page_size
+    start = end - page_size
+    return queryset[start:end]
 
 
-def check_paginate(
-        model: Model,
-        page: Union[int, None],
-        filter_data_kwargs: Union[dict, None] = dict(),
-        filter_data_args: Union[tuple, None] = tuple(),
-        q_filtered: bool = False,
-        page_size: int = 15
-):
+def setattr_for_save_obj(obj, update: Union[dict, None]):
     """
-    page: страница пагинации
-    filter_data_kwargs: данные для фильтрации в виде словаря
-    filter_data_args: данные для фильтрации в виде tuple
-    q_filtered: если filter_data_args=(Sum(...), ...) и в args есть Q()-объект(ы) то ставить q_filtered=True
-    page_size: кол-во объектов в 1 запроск, поумолчанию=15
-    result: проверить наличие фильтрции и пагинации, и исходя от этого делать раздичные проаерки и выводы
+    Для автоматизации обновлений.
+
+    Argument:
+    ----------
+    obj: Object
+        obj - Это один из дочериных классов src.models.BaseModel(a)
+        Используется при обновлении аттрибутов этого объекта(obj), который был передан в параметре: kwargs
+    data: update
+        data - Это dict или None
+        Используется при обновлении аттрибутов Объекта(obj)
+        Если дата None то метод вернет None и не обновит никаких аттрибутов
+
+    Этот метод срабатывает при вызове метода .save() у всех дочериных классах src.models.BaseModel(a)
+    Метод упрощает обновлений аттрибутов, пример:
+        Обычно чтоб изменить аттрибут объекта пишется:
+        obj.attr = new_value
+        obj.attr2 = new_value2
+        obj.attr3 = new_value3
+        ....
+        obj.save()
+        Чтобы упрощать этот процесс и уменьшить кол-во строк, теперь можно:
+        obj.save(update={"attr": "new_value", "attr2": new_value, "attr3": new_value, ....})
     """
-    # если нет никмких параиетров, то вывести данных кол-вом с page_size и добавить общее кол-во объектов
-    if page is None and bool(filter_data_kwargs) is False and bool(filter_data_args) is False:
-        data: QuerySet = orm(model, end=page_size).limit_all
-        return update_data(data, model)
-    # если есть что фильтровать,и нет страницы пагинации,то фильтровать и вывести объекты кол-вом указанном в page_size
-    elif page is None and bool(filter_data_kwargs or filter_data_args) is True:
-        data: QuerySet = orm(model, fd_args=filter_data_args, fd_kwargs=filter_data_kwargs, end=page_size,
-                             q_filtered=q_filtered).limit_filter
-        count = orm(model, fd_args=filter_data_args, fd_kwargs=filter_data_kwargs, end=page_size,
-                    q_filtered=q_filtered).filter.count()
-        return update_data(data, count=count)
-    # если есть данные для фильтрации и страница(page) не пуст то отфильтровать и передать объекты в соответсвии с page
-    elif bool(filter_data_kwargs or filter_data_args) is True and page is not None:
-        start = page_size * page
-        end = start + page_size
-        data: QuerySet = orm(model, fd_kwargs=filter_data_kwargs, fd_args=filter_data_args, start=start, end=end,
-                             q_filtered=q_filtered).paginate_filter
-        return update_data(data)
-    start = page_size * page
-    end = start + page_size
-    return orm(model, start=start, end=end).paginate_all
+    return _setattr_for_save_obj(obj, update)
+
+
+def _setattr_for_save_obj(obj, update: Union[dict, None]):
+    data = update
+
+    if data is None:
+        return
+
+    for attr, value in data.items():
+        if hasattr(obj, attr):
+            setattr(obj, attr, value)
+
+
+def get_list_attr_names(cls) -> list:
+    if isinstance(cls, Model):
+        return [field.name for field in cls._meta.fields]
+    return []
+
+
+def reformat_img_url(dict_images: dict):
+    data = dict()
+    if dict_images is None:
+        return data
+    domain = settings.DOMAIN_BACK_END
+    for key, value in dict_images.items():
+        data[key] = domain + value
+    return data

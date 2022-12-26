@@ -8,8 +8,9 @@ from django.urls import path, include
 
 urlpatterns = [
     path("admin/", admin.site.urls),
-    # path('chat/', include("src.chat.urls")),
-    # path('', api.urls)
+    # path("api/v1/", api.urls),  # if user django ninja
+    # path("", include("src.users.urls")),  if user DRF
+
 ]
 
 if settings.DEBUG:
